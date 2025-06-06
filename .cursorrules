@@ -9,7 +9,7 @@ Our workflow is defined by the tasks in `tasks.md`.
 - After completing a task and its associated tests, run the entire test suite to ensure no existing functionality has been broken.
 - Once all tests pass, explicitly state that the task is complete and that you are ready for me to perform a final manual test. Provide clear, simple instructions (e.g., terminal commands, API requests) for this validation.
 - Once I confirm that a task or a full phase is working correctly, you will stage all changes and use the `git commit` command to create a descriptive commit.
-- Do not use a separate `tracking.md` file. All progress is tracked by marking tasks as complete in `tasks.md`.
+- All progress is tracked by marking tasks as complete in `tasks.md`.
 
 ### Coding Instructions
 - Write the absolute minimum code required for the task at hand.

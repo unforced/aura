@@ -211,174 +211,113 @@ Here's a step-by-step plan to build the MVP of Project "Aura," focusing on the a
 ### Phase 3: Core Knowledge Representation - Neo4j & Vector Store Setup
 
 * **Task ID: P3-T1**
-    * **Description:** Set up Docker and run a Neo4j container.
+    * **Description:** Set up Docker and run a Neo4j container. - [x]
     * **Start State:** No graph database running.
     * **End State:** Neo4j container is running and accessible via Bolt port and HTTP port (for Browser). Connection details in `.env`.
     * **Test:** Connect to Neo4j Browser (`http://localhost:7474`) and run a simple Cypher query (e.g., `MATCH (n) RETURN n LIMIT 1`).
 
 * **Task ID: P3-T2**
-    * **Description:** Install Neo4j Python driver (`neo4j`).
+    * **Description:** Install Neo4j driver library and create a graph DB connection utility. - [x]
     * **Start State:** No Neo4j driver.
-    * **End State:** Library installed and added to `requirements.txt`.
-    * **Test:** Python interpreter can import `neo4j`.
+    * **End State:** Library installed and added to `requirements.txt`. A `graph_db.py` utility exists for managing connections. The main app closes the connection on shutdown.
+    * **Test:** A test script can import the `get_graph_session` dependency and connect to Neo4j to execute a simple query like `RETURN 1`.
 
 * **Task ID: P3-T3**
-    * **Description:** Create Neo4j connection management (`app/services/knowledge_graph_service.py` or `app/db/graph_session.py`).
-    * **Start State:** No code to connect to Neo4j.
-    * **End State:** Service/module provides a Neo4j driver instance and functions to run read/write Cypher queries. Credentials from `config.py`.
-    * **Test:** A test script can connect to Neo4j and execute `RETURN 1 AS result`.
+    * **Description:** Define a `BaseNode` and `BaseRelationship` for all graph models. - [x]
+    * **Start State:** No common base models for graph entities.
+    * **End State:** Pydantic models `BaseNode` (with `id: UUID`) and `BaseRelationship` (with `source: UUID`, `target: UUID`, `type: str`) are defined.
+    * **Test:** N/A (conceptual).
 
 * **Task ID: P3-T4**
-    * **Description:** Define a very simple V1 Neo4j schema: A `DocumentChunk` node with properties `id` (UUID), `text`, `document_id_pg` (FK to PostgreSQL `documents.id`), `chunk_seq_num`.
+    * **Description:** Define a `Chunk` node model and a `HAS_CHUNK` relationship model. - [x]
     * **Start State:** No defined Neo4j schema for chunks.
-    * **End State:** Conceptual schema defined (documented in code comments or a design doc).
+    * **End State:** `ChunkNode(BaseNode)` and `HasChunk(BaseRelationship)` models are defined.
     * **Test:** N/A (conceptual).
 
 * **Task ID: P3-T5**
-    * **Description:** Create a function in `knowledge_graph_service.py` to create a `DocumentChunk` node in Neo4j.
-    * **Start State:** No function to add `DocumentChunk` nodes.
-    * **End State:** `create_document_chunk_node(tx, chunk_id, text, document_id_pg, chunk_seq_num)` function exists.
-    * **Test:** Unit test: call the function within a Neo4j transaction, verify node creation with properties using Neo4j Browser or a Cypher query.
+    * **Description:** Create a service function to save a `Chunk` node in Neo4j. - [x]
+    * **Start State:** No function to add `Chunk` nodes.
+    * **End State:** A `save_chunk(session, chunk: ChunkNode)` function exists in a graph service module.
+    * **Test:** Unit test: call the function and verify the node is created with the correct properties.
 
 * **Task ID: P3-T6**
-    * **Description:** Set up a Vector Database (e.g., ChromaDB running in Docker, or a cloud-based one like Pinecone with a free tier). For ChromaDB, install `chromadb`.
+    * **Description:** Set up a Vector Database (e.g., ChromaDB running in Docker, or a cloud-based one like Pinecone with a free tier). For ChromaDB, install `chromadb`. - [x]
     * **Start State:** No vector database.
     * **End State:** Vector DB is running/accessible. Connection details/API key in `.env`. `chromadb` (or other client) installed.
     * **Test:** A test script can connect to the vector DB and create/check a test collection.
 
 * **Task ID: P3-T7**
-    * **Description:** Create vector DB connection management (`app/services/vector_store_service.py`).
+    * **Description:** Create vector DB connection management (`app/services/vector_store_service.py`). - [x]
     * **Start State:** No code to connect to vector DB.
     * **End State:** Service provides functions to connect, add embeddings (with metadata and IDs), and query by vector.
     * **Test:** Unit test: add a test vector with metadata, then query for it.
 
+* **Task ID: P3-t8**
+    * **Description:** Add functions to `vector_store_service.py` for adding and querying chunks. - [x]
+    * **Start State:** Connection management exists, but no add/query functions.
+    * **End State:** `add_texts` and `query_texts` (or similar) exist in the service.
+    * **Test:** Unit test: add sample texts to a test collection, query for them, and assert the results.
+
 ---
 
-### Phase 4: Document Processing & Basic RAG (Core of MVP)
+### Phase 4: Document Processing Pipeline (MVP)
 
 * **Task ID: P4-T1**
-    * **Description:** Install Celery and a message broker (e.g., Redis). Run Redis in Docker.
-    * **Start State:** No async task queue.
-    * **End State:** `celery` and `redis` Python libraries installed. Redis container running. Celery configured in `app/worker.py` and `app/core/config.py` to use Redis broker.
-    * **Test:** A simple Celery "add(x, y)" task can be defined, called via `.delay()`, and a Celery worker (run locally) picks it up and executes it (logs output).
+    * **Description:** Add Celery and a broker (Redis) to the project for background task processing. - [x]
+    * **Start State:** No background task queue.
+    * **End State:** `celery` and `redis` installed. Celery configured in the project. Redis container running.
+    * **Test:** A simple "add(x, y)" task can be created, queued, and executed by a Celery worker.
 
 * **Task ID: P4-T2**
-    * **Description:** Install PDF parsing library (e.g., `PyMuPDF`).
+    * **Description:** Install a PDF parsing library (`pypdf`). - [ ]
     * **Start State:** No PDF parsing capability.
-    * **End State:** `PyMuPDF` installed and added to `requirements.txt`.
-    * **Test:** A test script can open a sample PDF and extract all text from it.
+    * **End State:** `pypdf` installed and added to `requirements.txt`.
+    * **Test:** A test script can open a sample PDF and extract text from the first page.
 
 * **Task ID: P4-T3**
-    * **Description:** Implement a simple text chunking function (`app/services/document_processing_service.py`).
-    * **Start State:** No text chunking logic.
-    * **End State:** `chunk_text(text: str, chunk_size: int, overlap: int)` function splits text into overlapping chunks.
-    * **Test:** Unit test: pass sample text, verify output chunks meet size/overlap criteria.
+    * **Description:** Create a text chunking function.
+    * **Start State:** No text chunking capability.
+    * **End State:** A function `chunk_text(text: str, chunk_size: int, chunk_overlap: int) -> List[str]` exists.
+    * **Test:** Unit test: pass a long string to the function and verify it returns a list of strings of the expected approximate size.
 
 * **Task ID: P4-T4**
-    * **Description:** Install OpenAI Python client (`openai`). Add `OPENAI_API_KEY` to `.env`.
-    * **Start State:** No OpenAI client.
-    * **End State:** Library installed. API key configured.
-    * **Test:** A test script can make a simple API call (e.g., list models, or a cheap embedding).
+    * **Description:** Install a sentence-transformer model for creating embeddings.
+    * **Start State:** No embedding model.
+    * **End State:** `sentence-transformers` installed. A specific model (e.g., `all-MiniLM-L6-v2`) is downloaded/cached by the library.
+    * **Test:** A test script can load the model and create an embedding for a test sentence.
 
 * **Task ID: P4-T5**
-    * **Description:** Implement a function to get text embeddings using OpenAI API (`app/services/llm_service.py` or embed in `document_processing_service.py`).
-    * **Start State:** No embedding logic.
-    * **End State:** `get_embeddings(texts: List[str])` function returns a list of embeddings.
-    * **Test:** Unit test: pass a list with one short string, verify an embedding vector is returned with expected dimensionality.
+    * **Description:** Create an `EmbeddingService` that wraps the sentence-transformer model.
+    * **Start State:** No centralized embedding logic.
+    * **End State:** `EmbeddingService` with a method `embed_texts(texts: List[str]) -> List[List[float]]` exists.
+    * **Test:** Unit test: call the service with a list of texts and verify it returns a list of embeddings of the correct dimension.
 
-* **Task ID: P4-6**
-    * **Description:** Create a Celery task `process_document_for_mvp(document_id_pg: int, file_path: str)` in `app/tasks/process_document.py`.
-    * **Start State:** Document upload creates a "PENDING" record but no processing happens.
-    * **End State:** Celery task definition exists.
-    * **Test:** N/A (task definition only).
-
-* **Task ID: P4-T7**
-    * **Description:** Implement the logic within `process_document_for_mvp` task:
-        1.  Update `Document` status to "PROCESSING" in PostgreSQL.
-        2.  Extract text from PDF at `file_path` (P4-T2).
-        3.  Chunk the extracted text (P4-T3).
-        4.  For each chunk:
-            a.  Generate a unique ID for the chunk (e.g., UUID).
-            b.  Create `DocumentChunk` node in Neo4j (P3-T5) linking to `document_id_pg` and storing `text` and `chunk_seq_num`.
-            c.  Get embedding for the chunk's text (P4-T5).
-            d.  Add embedding to Vector DB (P3-T7) with metadata: `chunk_id` (Neo4j node ID or the UUID), `document_id_pg`.
-        5.  Update `Document` status to "COMPLETED" in PostgreSQL. Handle errors by setting status to "FAILED".
-    * **Start State:** Task is empty.
-    * **End State:** Task performs all steps.
-    * **Test:** (Integration Test) Upload a PDF. Manually trigger the Celery task (or modify upload endpoint to call it synchronously for now for easier testing). Verify:
-        * `Document` status updated in PostgreSQL.
-        * `DocumentChunk` nodes created in Neo4j with correct text and relations.
-        * Embeddings and metadata stored in Vector DB.
-
-* **Task ID: P4-T8**
-    * **Description:** Modify `/documents/upload` endpoint to asynchronously call `process_document_for_mvp.delay(...)` after creating the "PENDING" document record.
-    * **Start State:** Upload endpoint does not trigger processing.
-    * **End State:** Upload endpoint now dispatches the Celery task.
-    * **Test:** Upload a PDF. Observe Celery worker logs to see the task being picked up and executed. Verify DB changes as in P4-T7.
-
-* **Task ID: P4-T9**
-    * **Description:** Create a `/documents/{document_id_pg}/query` POST endpoint (`app/api/v1/documents.py`).
-    * **Start State:** No way to query a document.
-    * **End State:** Endpoint definition exists but is not implemented.
+* **Task ID: P4-T6**
+    * **Description:** Create a Celery task `process_document_for_mvp(document_id_pg: UUID)`.
+    * **Start State:** No processing task.
+    * **End State:** `tasks.py` file with the Celery task definition. The task is not fully implemented yet.
     * **Test:** N/A (definition only).
 
-* **Task ID: P4-T10**
-    * **Description:** Implement the logic for `/documents/{document_id_pg}/query` (Basic RAG - Step 1: Retrieval):
-        1.  Requires authenticated user.
-        2.  Accepts a JSON body like `{"question": "user's question"}`.
-        3.  Get embedding for the user's question (P4-T5).
-        4.  Query Vector DB (P3-T7) for top K similar chunks, filtering by `document_id_pg` (from path parameter).
-        5.  For this MVP, return the raw text of the retrieved chunks directly in the JSON response. Example: `{"retrieved_chunks": [{"text": "chunk1_text"}, {"text": "chunk2_text"}]}`.
-    * **Start State:** Endpoint is not implemented.
-    * **End State:** Endpoint retrieves and returns relevant text chunks.
-    * **Test:** Upload and process a document. Call this endpoint with a question relevant to the document. Verify the response contains text chunks that are indeed relevant.
+* **Task ID: P4-T7**
+    * **Description:** Implement the logic for `process_document_for_mvp`:
+        1.  Retrieve the `Document` from PostgreSQL using `document_id_pg`.
+        2.  Update `Document.status` to "PROCESSING".
+        3.  Parse text from the PDF file path stored in the `Document` model.
+        4.  Chunk the extracted text.
+        5.  Create a `Document` node in Neo4j.
+        6.  For each text chunk:
+            a. Create a `ChunkNode` in Neo4j and link it to the `Document` node.
+            b. Add the chunk's text and metadata (including the Neo4j `ChunkNode` UUID) to the Vector DB.
+        7.  Update `Document.status` to "COMPLETED".
+    *   **Start State:** Task is not implemented.
+    *   **End State:** The task performs the full text-to-graph-and-vector-db pipeline.
+    *   **Test:** (Integration Test) Upload a PDF. Manually trigger the Celery task. Verify:
+          * `Document` status updated in PostgreSQL.
+          * `Document` and `ChunkNode`s created in Neo4j.
+          * Embeddings and metadata stored in Vector DB.
 
----
-
-### Phase 5: Simplest Frontend for Testing Core Flow (Extremely Minimal)
-
-*Note: These are minimal tasks, assuming an engineering LLM might generate basic HTML/JS or you'll use Postman extensively. If a human is building this, they'd likely use a framework from the start.*
-
-* **Task ID: P5-T1**
-    * **Description:** Create a basic HTML page (`frontend_test/index.html`) with forms for user registration and login.
-    * **Start State:** No frontend.
-    * **End State:** HTML page with forms. JS to submit form data to backend `/users/` and `/login/access-token` endpoints and store/display JWT.
-    * **Test:** Register a user. Log in. See JWT displayed.
-
-* **Task ID: P5-T2**
-    * **Description:** Add a file upload form to `index.html` that submits to `/documents/upload` (sending JWT in header).
-    * **Start State:** Login works. No upload UI.
-    * **End State:** User can upload a PDF after logging in. Display document ID and status from response.
-    * **Test:** Log in, upload a PDF. Check network tab for successful request/response. Check backend logs/DBs for processing.
-
-* **Task ID: P5-T3**
-    * **Description:** Add a form to `index.html` to query an uploaded document. Input fields for `document_id_pg` and `question`.
-    * **Start State:** Upload works. No query UI.
-    * **End State:** User can input document ID and question, JS submits to `/documents/{document_id_pg}/query` (sending JWT). Display raw retrieved chunk texts.
-    * **Test:** After uploading and processing a document, use its ID to ask a question. See relevant text chunks displayed.
-
----
-
-### Phase 6: Introduce LLM for Basic Summarization/Answering (Simplest LangGraph Element)
-
-* **Task ID: P6-T1**
-    * **Description:** Create a function in `app/services/llm_service.py` for basic question answering given context.
-    * **Start State:** `llm_service.py` only has embedding function.
-    * **End State:** `answer_question_with_context(question: str, context_chunks: List[str])` function:
-        1.  Constructs a prompt: "Given the following context: [concatenated text of context_chunks]. Answer the question: [question]".
-        2.  Calls OpenAI completions/chat API.
-        3.  Returns the LLM's textual answer.
-    * **Test:** Unit test: call with a sample question and context, verify an answer string is returned.
-
-* **Task ID: P6-T2**
-    * **Description:** Modify the `/documents/{document_id_pg}/query` endpoint (P4-T10) logic:
-        1.  After retrieving top K similar chunks from Vector DB.
-        2.  Instead of returning raw chunks, pass the question and the text of these chunks to `answer_question_with_context` (P6-T1).
-        3.  Return the LLM's answer in the JSON response. Example: `{"answer": "llm_generated_answer", "retrieved_chunks": [...]}` (still good to return chunks for traceability).
-    * **Start State:** Endpoint returns raw chunks.
-    * **End State:** Endpoint returns an LLM-generated answer based on retrieved chunks.
-    * **Test:** Using the frontend test page (or Postman), ask a question to a processed document. Verify the answer is coherent and based on the document's content. Compare with just raw chunk retrieval.
-
----
-
-This MVP plan is highly sequential and foundational, building up the system piece by piece. Each step should be small enough for an engineering LLM to tackle and for you to test effectively. Good luck!
+* **Task ID: P4-T8**
+    * **Description:** Modify `/documents/upload` endpoint to asynchronously call `process_document_for_mvp.delay(...)`.
+    * **Start State:** Upload endpoint does not trigger processing.
+    * **End State:** Upload endpoint dispatches the Celery task.
+    * **Test:** Upload a PDF. Observe Celery worker logs. Verify DB changes as in P4-T7.

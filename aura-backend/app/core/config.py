@@ -20,6 +20,19 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
+    # Neo4j settings
+    NEO4J_URI: str
+    NEO4J_USER: str
+    NEO4J_PASSWORD: str
+
+    # ChromaDB settings
+    CHROMA_HOST: str
+    CHROMA_PORT: int
+
+    # Redis settings
+    REDIS_HOST: str
+    REDIS_PORT: int
+
     # Testing flag
     TESTING: bool = False
 

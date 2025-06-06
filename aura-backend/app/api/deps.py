@@ -1,8 +1,10 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from jose import jwt, JWTError
 from pydantic import ValidationError
+from neo4j import Session
+from typing import Generator
 
 from app.core.config import settings
 from app.db.models_pg import User
@@ -37,4 +39,18 @@ def get_current_active_user(
 ) -> User:
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user 
+    return current_user
+
+def get_graph_session(request: Request) -> Generator[Session, None, None]:
+    """
+    Dependency to get a Neo4j session from the application state.
+    """
+    if not hasattr(request.app.state, "graph_db"):
+        raise RuntimeError("GraphDB not found in application state. Is the lifespan manager correctly configured?")
+    
+    session = request.app.state.graph_db.get_session()
+    try:
+        yield session
+    finally:
+        if session:
+            session.close() 

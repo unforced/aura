@@ -5,8 +5,8 @@ from sqlmodel import Session, SQLModel, create_engine
 import os
 
 from app.main import app
-from app.core.config import get_settings, Settings
 from app.db.session import get_db
+from app.core.config import get_settings, Settings
 
 # --- Test Environment Setup ---
 
