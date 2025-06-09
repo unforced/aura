@@ -1,23 +1,29 @@
 from sqlmodel import Session
-from app.db.models_pg import Document
+from uuid import UUID
+from typing import Optional
 
-def create_document(db: Session, *, file_name: str, file_path: str, user_id: int) -> Document:
+from app.schemas.document_schemas import DocumentCreate
+from app.db.models_pg import Document as PGDocument
+
+def create_document(session: Session, document_in: DocumentCreate, owner_id: UUID) -> PGDocument:
+    db_document = PGDocument.model_validate(document_in, update={"owner_id": owner_id})
+    session.add(db_document)
+    session.commit()
+    session.refresh(db_document)
+    return db_document
+
+def get_document(session: Session, document_id: UUID) -> Optional[PGDocument]:
     """
-    Create a new document record in the database.
-
-    Args:
-        db: The database session.
-        file_name: The original name of the uploaded file.
-        file_path: The path where the file is stored.
-        user_id: The ID of the user who owns the document.
-
-    Returns:
-        The newly created document object.
+    Retrieves a document by its ID.
     """
-    db_document = Document(file_name=file_name, file_path=file_path, user_id=user_id)
-    
-    db.add(db_document)
-    db.commit()
-    db.refresh(db_document)
-    
-    return db_document 
+    return session.get(PGDocument, document_id)
+
+def update_document_status(session: Session, document: PGDocument, status: str) -> PGDocument:
+    """
+    Updates the status of a document.
+    """
+    document.status = status
+    session.add(document)
+    session.commit()
+    session.refresh(document)
+    return document 

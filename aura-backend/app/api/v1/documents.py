@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from app.api import deps
 from app.crud import crud_document
-from app.schemas.document_schemas import DocumentCreateResponse
+from app.schemas.document_schemas import DocumentCreate, DocumentCreateResponse
 from app.db.models_pg import User
 from app.core.config import settings
 from sqlmodel import Session
@@ -38,11 +38,11 @@ def upload_document(
         file.file.close()
 
     # Create the document record in the database
+    doc_in = DocumentCreate(file_name=file.filename, file_path=str(file_path))
     document = crud_document.create_document(
-        db=db,
-        file_name=file.filename,
-        file_path=str(file_path),
-        user_id=current_user.id
+        session=db,
+        document_in=doc_in,
+        owner_id=current_user.id
     )
 
     return document 

@@ -1,5 +1,6 @@
 from sqlmodel import SQLModel
 from typing import Optional
+from uuid import UUID
 
 # Schema for the payload (claims) of a JWT.
 class TokenPayload(SQLModel):
@@ -19,7 +20,7 @@ class UserCreate(UserBase):
 # This is also a table model, but we will rely on the main User model for tables.
 # For now, let's treat this as a separate API model.
 class UserRead(UserBase):
-    id: int
+    id: UUID
     is_active: bool
 
 # Schema for updating a user (e.g., in a PATCH request).

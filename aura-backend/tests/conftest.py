@@ -3,44 +3,54 @@ from typing import Generator
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 import os
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
 
 from app.main import app
 from app.db.session import get_db
-from app.core.config import get_settings, Settings
+from app.core.config import Settings
 
 # --- Test Environment Setup ---
 
-def get_settings_override():
-    # Point to the .env.test file
+@pytest.fixture(scope='function', autouse=True)
+def test_settings(monkeypatch):
+    """
+    Monkeypatches the application settings for each test function.
+    """
     env_file = os.path.join(os.path.dirname(__file__), "..", ".env.test")
-    return Settings(_env_file=env_file, TESTING=True)
+    settings_override = Settings(_env_file=env_file, TESTING=True)
+    
+    monkeypatch.setattr("app.core.config.settings", settings_override)
+    monkeypatch.setattr("app.db.session.settings", settings_override)
+    monkeypatch.setattr("app.worker.settings", settings_override)
+    
+    return settings_override
 
-# Override the get_settings dependency for all tests
-app.dependency_overrides[get_settings] = get_settings_override
-
-# Create a new engine for the test database
-settings_override = get_settings_override()
-engine = create_engine(str(settings_override.DATABASE_URL))
+@pytest.fixture(scope='function')
+def test_engine(test_settings):
+    """
+    Creates a new engine for the test database for each test function.
+    """
+    return create_engine(str(test_settings.DATABASE_URL))
 
 # --- Fixtures ---
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_test_db():
+@pytest.fixture(scope="function")
+def setup_test_db(test_engine):
     """
-    Fixture to set up the test database before any tests run
-    and tear it down after all tests are done.
+    Fixture to set up the test database before each test function
+    and tear it down after.
     """
-    SQLModel.metadata.create_all(engine)
+    SQLModel.metadata.create_all(test_engine)
     yield
-    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.drop_all(test_engine)
 
 @pytest.fixture(scope="function")
-def session() -> Generator[Session, None, None]:
+def session(test_engine, setup_test_db) -> Generator[Session, None, None]:
     """
     Provides a clean database session for each test function.
-    Rolls back any changes after the test.
     """
-    connection = engine.connect()
+    connection = test_engine.connect()
     transaction = connection.begin()
     db_session = Session(bind=connection)
 
@@ -63,30 +73,37 @@ def client(session: Session) -> Generator[TestClient, None, None]:
     with TestClient(app) as c:
         yield c
 
-    # Clean up the override after the test
     app.dependency_overrides.pop(get_db, None)
 
 @pytest.fixture(scope="function")
-def authenticated_client(client: TestClient, session: Session) -> TestClient:
+def authenticated_client(client: TestClient, session: Session, test_settings) -> TestClient:
     """
     Provides a TestClient that is pre-authenticated as a test user.
     """
-    from app.crud.crud_user import create_user
+    from app.crud import crud_user
     from app.schemas.user_schemas import UserCreate
 
-    # Create a test user
     test_email = "test.auth@example.com"
     test_password = "testpassword"
     user_in = UserCreate(email=test_email, password=test_password)
-    create_user(db=session, user_in=user_in)
+    crud_user.create_user(db=session, user_in=user_in)
 
-    # Log the user in to get a token
     login_data = {"username": test_email, "password": test_password}
-    response = client.post(f"{get_settings().API_V1_STR}/login/access-token", data=login_data)
+    response = client.post(f"{test_settings.API_V1_STR}/login/access-token", data=login_data)
     assert response.status_code == 200
     token = response.json()["access_token"]
 
-    # Set the authorization header for the client
     client.headers["Authorization"] = f"Bearer {token}"
 
-    return client 
+    return client
+
+@pytest.fixture(scope="session")
+def sample_pdf_path(tmp_path_factory):
+    """
+    Creates a simple dummy PDF file for testing and returns its path.
+    """
+    pdf_path = tmp_path_factory.mktemp("data") / "sample.pdf"
+    c = canvas.Canvas(str(pdf_path), pagesize=letter)
+    c.drawString(100, 750, "This is a test PDF document for Project Aura.")
+    c.save()
+    return str(pdf_path) 
