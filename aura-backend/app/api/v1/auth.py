@@ -32,14 +32,32 @@ def login_for_access_token(
     access_token = create_access_token(subject=user.email)
     return {"access_token": access_token, "token_type": "bearer"}
 
-@router.post("/users/", response_model=UserRead, status_code=201)
+@router.post("/register", response_model=UserRead, status_code=201)
 def register_user(
     *,
     db: Session = Depends(get_db),
     user_in: UserCreate
 ):
     """
-    Create a new user.
+    Register a new user.
+    """
+    try:
+        user = crud_user.create_user(db=db, user_in=user_in)
+    except IntegrityError:
+        raise HTTPException(
+            status_code=400,
+            detail="The user with this email already exists in the system.",
+        )
+    return user
+
+@router.post("/users/", response_model=UserRead, status_code=201)
+def register_user_legacy(
+    *,
+    db: Session = Depends(get_db),
+    user_in: UserCreate
+):
+    """
+    Create a new user (legacy endpoint).
     """
     try:
         user = crud_user.create_user(db=db, user_in=user_in)
