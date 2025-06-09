@@ -321,11 +321,12 @@ Here's a step-by-step plan to build the MVP of Project "Aura," focusing on the a
     *   **Test:** Unit test: mock the vector store and LLM calls. Verify the prompt construction and that the final response is returned.
     *   **Actual Result:** Successfully implemented `RAGService` in `app/services/rag_service.py` with full functionality. Service takes question and document_id, retrieves chunks via `query_vector_store`, constructs contextual prompts, calls LLM via `litellm`, and returns structured `RAGResponse`. Includes error handling, logging, and convenience function. Added `litellm` dependency for LLM integration.
 
-*   **Task ID: P5-T4**
+*   **Task ID: P5-T4** - [x]
     *   **Description:** Create a `/documents/{document_id}/query` POST endpoint.
     *   **Start State:** No query endpoint.
     *   **End State:** Endpoint accepts a query string, requires authentication, calls the `RAGService`, and returns the answer.
     *   **Test:** API test: upload and process a document. Then call the query endpoint and verify a string response is received.
+    *   **Actual Result:** Successfully implemented `/documents/{document_id}/query` POST endpoint with full authentication, authorization, and RAG integration. The endpoint validates document ownership, checks processing status, and returns structured responses with answers and source chunks. Includes comprehensive error handling for missing documents, access control violations, and incomplete processing. Created test suite covering success cases, authentication requirements, and edge cases.
 
 ---
 

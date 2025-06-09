@@ -1,6 +1,7 @@
 from sqlmodel import SQLModel
 from datetime import datetime
 from uuid import UUID
+from typing import List, Dict, Any
 
 # Schema for creating a document (internal, not directly from API)
 class DocumentCreate(SQLModel):
@@ -19,4 +20,13 @@ class DocumentRead(SQLModel):
 class DocumentCreateResponse(SQLModel):
     id: UUID
     file_name: str
-    status: str 
+    status: str
+
+# Schema for querying a document
+class DocumentQueryRequest(SQLModel):
+    question: str
+
+# Schema for the response after querying a document
+class DocumentQueryResponse(SQLModel):
+    answer: str
+    chunks_used: List[Dict[str, Any]] 
