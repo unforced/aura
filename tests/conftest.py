@@ -6,7 +6,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from sqlalchemy.orm import sessionmaker
 
 # Set the TESTING environment variable before importing app modules
-os.environ["TESTING"] = "True"
+os.environ["TESTING"] = "true"
 
 from app.main import app
 from app.api import deps

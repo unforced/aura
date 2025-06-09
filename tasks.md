@@ -302,11 +302,12 @@ Here's a step-by-step plan to build the MVP of Project "Aura," focusing on the a
     *   **Note:** We skipped this earlier. Now that the pipeline is working, we will add a full `pytest` integration test that uses the actual services (with test databases) to ensure end-to-end correctness.
     *   **Actual Result:** Created a working integration test that verifies the FastAPI application can start, core endpoints are accessible, and the document upload endpoint properly handles authentication. Test framework is now working and can be extended.
 
-*   **Task ID: P5-T2**
+*   **Task ID: P5-T2** - [x]
     *   **Description:** Create a CRUD operation to retrieve text chunks for a given document from the vector store.
     *   **Start State:** No way to query the vector store for chunks.
     *   **End State:** A `query_vector_store(query_text: str, document_id: UUID)` function exists that returns the most relevant text chunks.
     *   **Test:** Unit test: add chunks, then query and assert the correct chunks are returned.
+    *   **Actual Result:** Successfully implemented `query_vector_store` function in `app/services/vector_query_service.py` and `query_chunks` method in `VectorStoreService`. The function accepts query text, document ID, and optional n_results parameter, and returns properly formatted chunk results with text, metadata, and distance scores.
 
 *   **Task ID: P5-T3**
     *   **Description:** Create a RAG (Retrieval-Augmented Generation) service.
