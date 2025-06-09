@@ -1,48 +1,43 @@
-import shutil
 from pathlib import Path
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+import shutil
+from sqlmodel import Session
+
 from app.api import deps
 from app.crud import crud_document
 from app.schemas.document_schemas import DocumentCreate, DocumentCreateResponse
 from app.db.models_pg import User
 from app.core.config import settings
-from sqlmodel import Session
+from app.core.celery_app import celery_app
 
 router = APIRouter()
 
+
 @router.post("/upload", response_model=DocumentCreateResponse, status_code=201)
 def upload_document(
-    *,
+    file: UploadFile = File(...),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-    file: UploadFile = File(...)
 ):
     """
-    Upload a document for the current user.
+    Upload a document for the authenticated user.
     """
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="No file name provided.")
-
-    # Define the path for the uploaded file
-    # Note: In a real application, you would add more robust filename sanitization
-    # and handle potential file name collisions.
+    # Ensure the upload directory exists
     upload_dir = Path(settings.UPLOADS_DIR)
-    upload_dir.mkdir(parents=True, exist_ok=True) # Ensure the directory exists
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save the uploaded file
     file_path = upload_dir / file.filename
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
 
-    # Save the file to the configured directory
-    try:
-        with file_path.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    finally:
-        file.file.close()
-
-    # Create the document record in the database
-    doc_in = DocumentCreate(file_name=file.filename, file_path=str(file_path))
+    # Create a document record in the database
+    document_create = DocumentCreate(file_name=file.filename, file_path=str(file_path))
     document = crud_document.create_document(
-        session=db,
-        document_in=doc_in,
-        owner_id=current_user.id
+        session=db, document_in=document_create, owner_id=current_user.id
     )
+
+    # Dispatch the processing task to the Celery worker by name
+    celery_app.send_task("app.worker.process_document_for_mvp", args=[str(document.id)])
 
     return document 

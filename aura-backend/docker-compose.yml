@@ -3,15 +3,15 @@ services:
     image: postgres:15
     container_name: aura-postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: aura
+      POSTGRES_PASSWORD: aura
+      POSTGRES_DB: aura
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U aura -d aura"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -31,7 +31,7 @@ services:
     image: neo4j:5
     container_name: aura-neo4j
     environment:
-      NEO4J_AUTH: ${NEO4J_USER}/${NEO4J_PASSWORD}
+      NEO4J_AUTH: neo4j/password
       NEO4J_ACCEPT_LICENSE_AGREEMENT: "yes"
     ports:
       - "7474:7474"
@@ -45,7 +45,7 @@ services:
       retries: 5
 
   chroma:
-    image: chromadb/chroma:0.4.24
+    image: chromadb/chroma:latest
     container_name: aura-chroma
     ports:
       - "8001:8000" # Expose on 8001 to avoid conflict with backend
@@ -55,8 +55,19 @@ services:
   backend:
     build: .
     container_name: aura-backend
-    env_file:
-      - ./.env
+    environment:
+      DATABASE_URL: "postgresql://aura:aura@postgres:5432/aura"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      NEO4J_URI: "neo4j://neo4j:7687"
+      NEO4J_USER: "neo4j"
+      NEO4J_PASSWORD: "password"
+      CHROMA_HOST: "chroma"
+      CHROMA_PORT: "8000"
+      SECRET_KEY: "a_very_secret_key"
+      ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+      UPLOADS_DIR: "/app/uploads"
+      TESTING: "False"
     ports:
       - "8000:8000"
     volumes:
@@ -75,11 +86,22 @@ services:
   worker:
     build: .
     container_name: aura-worker
-    env_file:
-      - ./.env
+    environment:
+      DATABASE_URL: "postgresql://aura:aura@postgres:5432/aura"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      NEO4J_URI: "neo4j://neo4j:7687"
+      NEO4J_USER: "neo4j"
+      NEO4J_PASSWORD: "password"
+      CHROMA_HOST: "chroma"
+      CHROMA_PORT: "8000"
+      SECRET_KEY: "a_very_secret_key"
+      ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+      UPLOADS_DIR: "/app/uploads"
+      TESTING: "False"
     volumes:
       - .:/app
-    command: celery -A app.worker.celery_app worker --loglevel=info
+    command: celery -A app.worker worker --loglevel=info --pool=solo
     depends_on:
       backend:
         condition: service_started

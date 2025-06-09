@@ -1,48 +1,32 @@
-from neo4j import Session
-from app.models.graph import ChunkNode
+from neo4j import GraphDatabase
 from uuid import UUID
+from sqlmodel import Session
+from app.db.models_pg import Document
+from app.db.graph_db import GraphDB
+from app.core.config import settings
 
-def save_document_node(session: Session, document_id: UUID) -> None:
+class GraphService:
     """
-    Creates or updates a Document node in the graph.
+    Service for interacting with the Neo4j graph database.
     """
-    query = (
-        "MERGE (d:Document {id: $id})"
-        "RETURN d"
-    )
-    session.run(query, id=str(document_id))
+    def __init__(self, graph_db: GraphDB):
+        self.db = graph_db
 
-def save_chunk(session: Session, chunk: ChunkNode) -> ChunkNode:
-    """
-    Saves a ChunkNode to the graph database.
-    """
-    # Using MERGE on the chunk's UUID to prevent creating duplicate nodes
-    # if this operation is ever re-run with the same chunk.
-    query = (
-        "MERGE (c:Chunk {id: $id}) "
-        "ON CREATE SET c.text = $text, c.document_id = $document_id "
-        "RETURN c"
-    )
-    
-    result = session.run(query, id=str(chunk.id), text=chunk.text, document_id=str(chunk.document_id))
-    
-    # We can add more robust error handling here later
-    record = result.single()
-    
-    # After saving the chunk, link it to its parent document
-    if record:
-        link_chunk_to_document(session, document_id=chunk.document_id, chunk_id=chunk.id)
-        return chunk
-    
-    return None # Or raise an exception 
+    def create_document_graph(self, pg_session: Session, document: Document):
+        """
+        Creates a basic graph representation for a document.
+        For the MVP, this just creates a single Document node.
+        """
+        with self.db.get_session() as graph_session:
+            # Create the parent document node
+            query = "MERGE (d:Document {id: $id, name: $name})"
+            graph_session.run(query, id=str(document.id), name=document.file_name)
+            print(f"Graph representation for document {document.id} created.")
 
-def link_chunk_to_document(session: Session, document_id: UUID, chunk_id: UUID) -> None:
-    """
-    Creates a HAS_CHUNK relationship between a Document and a Chunk node.
-    """
-    query = (
-        "MATCH (d:Document {id: $document_id}) "
-        "MATCH (c:Chunk {id: $chunk_id}) "
-        "MERGE (d)-[:HAS_CHUNK]->(c)"
-    )
-    session.run(query, document_id=str(document_id), chunk_id=str(chunk_id)) 
+
+# Create a singleton instance of the service
+graph_service = GraphService(graph_db=GraphDB(
+    uri=settings.NEO4J_URI,
+    user=settings.NEO4J_USER,
+    password=settings.NEO4J_PASSWORD
+)) 

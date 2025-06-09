@@ -1,102 +1,59 @@
-from celery import Celery
+from celery.utils.log import get_task_logger
 from uuid import UUID
-from pypdf import PdfReader
+from sqlmodel import Session
 
-from app.core.config import get_settings
-from app.db.session import get_db as get_pg_session
-from app.db.graph_db import GraphDB
+from app.core.celery_app import celery_app
+from app.db.session import engine
 from app.crud import crud_document
 from app.services import (
-    document_processing_service,
-    embedding_service,
+    process_document,
     graph_service,
     vector_store_service,
 )
-from sqlmodel import SQLModel
 
-# Use the same settings logic as the main app
-settings = get_settings()
 
-redis_url = f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/0"
+logger = get_task_logger(__name__)
 
-celery_app = Celery(
-    "tasks",
-    broker=redis_url,
-    backend=redis_url
-)
-
-# Apply settings from the config module
-celery_app.conf.update(
-    task_always_eager=settings.TESTING,
-    task_track_started=not settings.TESTING,
-)
 
 @celery_app.task
-def add(x, y):
-    return x + y
-
-@celery_app.task(bind=True)
-def process_document_for_mvp(self, document_id_pg: str):
+def process_document_for_mvp(document_id_str: str):
     """
-    Celery task to process a document for the MVP.
+    The main Celery task to process a document for the MVP.
     """
-    pg_session_gen = get_pg_session()
-    pg_db = next(pg_session_gen)
-    
-    graph_db = GraphDB(
-        uri=settings.NEO4J_URI,
-        user=settings.NEO4J_USER,
-        password=settings.NEO4J_PASSWORD,
-    )
-    graph_session = graph_db.get_session()
+    doc_id = UUID(document_id_str)
+    logger.info(f"Starting processing for document {doc_id}")
 
-    document = None
-    try:
-        doc_id = UUID(document_id_pg)
-        document = crud_document.get_document(pg_db, document_id=doc_id)
-        if not document:
-            print(f"Error: Document with ID {document_id_pg} not found.")
-            return {"status": "failed", "error": "Document not found"}
+    with Session(engine) as session:
+        try:
+            document = crud_document.get_document(session, document_id=doc_id)
+            if not document:
+                logger.error(f"Document with ID {doc_id} not found.")
+                return
 
-        crud_document.update_document_status(pg_db, document=document, status="PROCESSING")
+            crud_document.update_document_status(session, document=document, status="PROCESSING")
 
-        # 1. Parse PDF
-        reader = PdfReader(document.file_path)
-        full_text = "".join(page.extract_text() for page in reader.pages)
+            text_chunks = process_document(document.file_path)
 
-        # 2. Chunk text
-        chunks = document_processing_service.chunk_text(full_text)
+            # Create IDs and metadata for each chunk
+            chunk_ids = [f"{doc_id}_{i}" for i in range(len(text_chunks))]
+            metadatas = [{"document_id": str(doc_id), "chunk_index": i} for i in range(len(text_chunks))]
 
-        # 3. Create Document node in Neo4j
-        graph_service.save_document_node(graph_session, document_id=document.id)
+            vector_store_service.add_texts(
+                collection_name="documents",
+                texts=text_chunks,
+                ids=chunk_ids,
+                metadatas=metadatas
+            )
+            
+            graph_service.create_document_graph(session, document)
 
-        # 4. Process each chunk
-        chunk_texts = []
-        chunk_nodes = []
-        for text in chunks:
-            chunk_node = graph_service.ChunkNode(text=text, document_id=document.id)
-            graph_service.save_chunk(graph_session, chunk=chunk_node)
-            chunk_texts.append(text)
-            chunk_nodes.append(chunk_node)
+            crud_document.update_document_status(session, document=document, status="COMPLETED")
+            logger.info(f"Successfully processed document: {doc_id}")
 
-        # 5. Embed and store in vector DB
-        embeddings = embedding_service.embed_texts(chunk_texts)
-        vector_store_service.add_texts(
-            collection_name=str(document.owner_id),
-            texts=chunk_texts,
-            metadatas=[{"document_id": str(document.id), "chunk_id": str(cn.id)} for cn in chunk_nodes],
-            ids=[str(cn.id) for cn in chunk_nodes]
-        )
-        
-        crud_document.update_document_status(pg_db, document=document, status="COMPLETED")
-        print(f"Finished processing document: {document_id_pg}")
-        return {"document_id": document_id_pg, "status": "completed"}
-
-    except Exception as e:
-        print(f"Error processing document {document_id_pg}: {e}")
-        if document:
-            crud_document.update_document_status(pg_db, document=document, status="FAILED")
-        raise
-    finally:
-        graph_session.close()
-        # pg_db is closed by the 'with' context in get_db 
+        except Exception as e:
+            logger.error(f"Error processing document {doc_id}: {e}", exc_info=True)
+            with Session(engine) as final_session:
+                doc_to_fail = crud_document.get_document(final_session, document_id=doc_id)
+                if doc_to_fail:
+                    crud_document.update_document_status(final_session, document=doc_to_fail, status="FAILED")
+            raise 

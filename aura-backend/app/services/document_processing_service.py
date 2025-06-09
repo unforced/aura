@@ -1,4 +1,25 @@
 from typing import List
+import pathlib
+
+def process_document(file_path: str) -> List[str]:
+    """
+    Reads a document, extracts its text, and splits it into chunks.
+    Currently supports .txt and .md files.
+    """
+    path = pathlib.Path(file_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"No file found at {file_path}")
+
+    # For MVP, we assume text-based files. A more robust solution would handle
+    # different file types (e.g., .pdf, .docx) with appropriate libraries.
+    try:
+        text = path.read_text(encoding='utf-8')
+    except Exception as e:
+        # Broad exception to catch potential decoding errors
+        raise IOError(f"Could not read file {file_path}: {e}")
+
+    return chunk_text(text)
+
 
 def chunk_text(
     text: str,
