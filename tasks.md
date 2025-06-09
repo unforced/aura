@@ -309,7 +309,7 @@ Here's a step-by-step plan to build the MVP of Project "Aura," focusing on the a
     *   **Test:** Unit test: add chunks, then query and assert the correct chunks are returned.
     *   **Actual Result:** Successfully implemented `query_vector_store` function in `app/services/vector_query_service.py` and `query_chunks` method in `VectorStoreService`. The function accepts query text, document ID, and optional n_results parameter, and returns properly formatted chunk results with text, metadata, and distance scores.
 
-*   **Task ID: P5-T3**
+*   **Task ID: P5-T3** - [x]
     *   **Description:** Create a RAG (Retrieval-Augmented Generation) service.
     *   **Start State:** No RAG service.
     *   **End State:** A `RAGService` that:
@@ -319,6 +319,7 @@ Here's a step-by-step plan to build the MVP of Project "Aura," focusing on the a
         4.  Calls an external LLM (e.g., via `litellm`) with the prompt.
         5.  Returns the LLM's response.
     *   **Test:** Unit test: mock the vector store and LLM calls. Verify the prompt construction and that the final response is returned.
+    *   **Actual Result:** Successfully implemented `RAGService` in `app/services/rag_service.py` with full functionality. Service takes question and document_id, retrieves chunks via `query_vector_store`, constructs contextual prompts, calls LLM via `litellm`, and returns structured `RAGResponse`. Includes error handling, logging, and convenience function. Added `litellm` dependency for LLM integration.
 
 *   **Task ID: P5-T4**
     *   **Description:** Create a `/documents/{document_id}/query` POST endpoint.

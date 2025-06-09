@@ -117,3 +117,4 @@ websockets==15.0.1
 zipp==3.22.0
 argon2-cffi==21.3.0
 beautifulsoup4==4.12.3
+litellm
